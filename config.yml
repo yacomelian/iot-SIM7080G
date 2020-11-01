@@ -1,0 +1,22 @@
+# Configuration file for car bluetooth reader
+
+logging: 'INFO'
+
+mqtt:
+   host: 'localhost'
+   port: 1883
+   topic: "simcom/serial"
+   keepalive: 60
+
+serial:
+   # Bluetooth and rfcomm
+   port: '/dev/ttyS0'
+   port_simulate: '/dev/pts/1'  
+   baudrate: 9600
+   parity: PARITY_NONE
+   stopbits: STOPBITS_ONE
+   bytesize: EIGHTBITS
+   timeout: 1
+
+   
+
