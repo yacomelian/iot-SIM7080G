@@ -1,17 +1,10 @@
 # SIM7080G Module python test
-# SIM7080G Module python test
-# SIM7080G Module python test
 
 
+## Install
 
-pip3 install -r requirements.txt 
+pip3 install -r requirements.txt \
 apt install python3-yaml
-
-
-
-
-
-
 
 ## GPS
 
@@ -22,7 +15,7 @@ apt install python3-yaml
 |-------|----------------------------|--------------------|--------------------------------------------------------------------------------------|--------|
 | 1     | GNSS run status            | --                 | 0-1                                                                                  | 1      |
 | 2     |                            | --                 | 0-1                                                                                  | 1      |
-| 3     | UTC date & Time            | yyyyMMddhhmmss.sss | yyyy: [1980,2039] MM : [1,12] dd: [1,31] hh: [0,23] mm: [0,59] ss.sss:[0.000,60.999] | 18     |
+| 3     | UTC date & Time            | yyyyMMddhhmmss.sss | yyyy: [1980,2039] \MM : [1,12] dd: [1,31] hh: [0,23] mm: [0,59] ss.sss:[0.000,60.999] | 18     |
 | 4     | Latitude                   | ±dd.dddddd         | [-90.000000,90.000000]                                                               | 10     |
 | 5     | Longitude                  | ±ddd.dddddd        | [-180.000000,180.000000]                                                             | 11     |
 | 6     | MSL Altitude               | meters             |                                                                                      | 8      |
@@ -43,37 +36,38 @@ apt install python3-yaml
 | 21    | VPA                        | meters             | [0,9999.9]                                                                           | 6      |
 
 
-    ##### <GNSS run status> 
-		0 GNSS off
-		1 GNSS on
-    ##### <Fix status>
-		0 Not fixed position
-		1 Fixed position
-    ##### <UTC date & Time>
-		Example 20201122211554.000
-		Year: yyyy
-		Month: mm
-		Day: dd
-		Hour: hh
-		Minutes: MM
-		Seconds: ss
-		MS: Always .000
-		
-    ##### <Latitude>
-    
-    ##### <Longitude>
-    ##### <MSL Altitude>
-    ##### <Speed Over Ground>
-    ##### <Course Over Ground>
-    ##### <Fix Mode>
-    ##### <Reserved1>
-    ##### <HDOP> - Horizontal dilution of precision
-    ###### DOP - Dilution of precision
-    Wikipedia: Dilution of precision (DOP), or geometric dilution of 
-    precision (GDOP), is a term used in satellite navigation and 
-    geomatics engineering to specify the Error propagation as a 
-    mathematical effect of navigation satellite geometry on positional 
-    measurement precision. 
+### Parameters
+#### <GNSS run status> 
+	0 GNSS off
+	1 GNSS on
+#### <Fix status>
+	0 Not fixed position
+	1 Fixed position
+#### <UTC date & Time>
+	Example 20201122211554.000
+	Year: yyyy
+	Month: mm
+	Day: dd
+	Hour: hh
+	Minutes: MM
+	Seconds: ss
+	MS: Always .000
+	
+#### <Latitude>
+
+#### <Longitude>
+#### <MSL Altitude>
+#### <Speed Over Ground>
+#### <Course Over Ground>
+#### <Fix Mode>
+#### <Reserved1>
+#### <HDOP> - Horizontal dilution of precision
+#### DOP - Dilution of precision
+Wikipedia: Dilution of precision (DOP), or geometric dilution of 
+precision (GDOP), is a term used in satellite navigation and 
+geomatics engineering to specify the Error propagation as a 
+mathematical effect of navigation satellite geometry on positional 
+measurement precision. 
     
     |Value 	|Rating 	|Description
     |-------|-----------|-----------------------------------------------------------------------|
@@ -84,23 +78,22 @@ apt install python3-yaml
 	|10-20 	|Fair 		|Represents a low confidence level. Positional measurements should be discarded or used only to indicate a very rough estimate of the current location. |
 	|>20 	|Poor 		|At this level, measurements are inaccurate by as much as 300 meters with a 6-meter accurate device (50 DOP × 6 meters) and should be discarded. |
  
-    ##### <PDOP> - Position (3D) of precision
-    ##### <VDOP> - Vertical Dilution of precision
-    ##### <Reserved2>
-    ##### <GNSS Satellites in View>
-     Global Navigation Satellite System
-    ##### <Reserved3>
-    a
-    ##### <HPA> - Horizontal position accuracy
-		Margen de error en la distancia horizontal
-    ##### <VPA> - Vertical position accuracy
-		Margen de error en distancia vertical
+##### <PDOP> - Position (3D) of precision
+##### <VDOP> - Vertical Dilution of precision
+##### <Reserved2>
+##### <GNSS Satellites in View>
+ Global Navigation Satellite System
+##### <Reserved3>
+a
+##### <HPA> - Horizontal position accuracy
+	Margen de error en la distancia horizontal
+##### <VPA> - Vertical position accuracy
+	Margen de error en distancia vertical
+
+### Example
+Example output: 1,1,20201122211554.000,28.416938,-16.305379,185.985,
+0.00,,0,,1.3,1.5,0.9,,10,,7.0,6.0
     
-    Example output: 1,1,20201122211554.000,28.416938,-16.305379,185.985,
-    0.00,,0,,1.3,1.5,0.9,,10,,7.0,6.0
-    
-   
-    
-    
- # References
- https://en.wikipedia.org/wiki/Dilution_of_precision_(navigation)
+# References
+[Wikipedia](https://en.wikipedia.org/wiki/Dilution_of_precision_(navigation))
+[SIMCOM](https://simcom.ee/documents/SIM7060G/SIM7060%20Series_GNSS_Application%20Note_V1.03.pdf)
