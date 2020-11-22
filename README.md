@@ -3,7 +3,7 @@
 
 ## Install
 
-	pip3 install -r requirements.txt \
+	pip3 install -r requirements.txt
 	apt install python3-yaml
 
 ## GPS
@@ -15,7 +15,7 @@
 |-------|----------------------------|--------------------|--------------------------------------------------------------------------------------|--------|
 | 1     | GNSS run status            | --                 | 0-1                                                                                  | 1      |
 | 2     |                            | --                 | 0-1                                                                                  | 1      |
-| 3     | UTC date & Time            | yyyyMMddhhmmss.sss | yyyy: [1980,2039] <br\>MM : [1,12] <br\>dd: [1,31] <br\>hh: [0,23] <br\>mm: [0,59] <br\>ss.sss:[0.000,60.999] | 18     |
+| 3     | UTC date & Time            | yyyyMMddhhmmss.sss | yyyy: [1980,2039] <br>MM : [1,12] <br>dd: [1,31] <br>hh: [0,23] <br>mm: [0,59] <br>ss.sss:[0.000,60.999] | 18     |
 | 4     | Latitude                   | ±dd.dddddd         | [-90.000000,90.000000]                                                               | 10     |
 | 5     | Longitude                  | ±ddd.dddddd        | [-180.000000,180.000000]                                                             | 11     |
 | 6     | MSL Altitude               | meters             |                                                                                      | 8      |

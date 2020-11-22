@@ -130,6 +130,7 @@ class simcom:
         rec_null = True
         answer = 0
         rec_buff = ''
+        position = False
         if (self.gps_status == self.OFF):  # Si GPS no activo
             self.gpsPowerOn();
         while rec_null:
@@ -140,23 +141,20 @@ class simcom:
                 if ',,,,,,' in self.cmdout:
                     logging.debug('GPS is not ready')
                     rec_null = False
-                    time.sleep(1)
+                    #time.sleep(1)
                 else:
                     logging.info('Posicion: ' + self.cmdout)
                     i=0
-                    out = self.cmdout.splitlines()[2]
-                    #for s in self.cmdout.splitlines():
-                    #    i+=1
-                    #    print(str(i) +": "+ s)
-                    #print("[" + self.cmdout + "]")
-                    #hex_val = self.toHex(self.cmdout)
-                    #print(hex_val)
-                    print(out)
+                    position = self.cmdout.splitlines()[2].split(":")[1].lstrip()
+                    rec_null = False
+                    print(position)
             else:
-                logging.info('error %s' % answer)
+                logging.info('getGpsPosition error %s' % answer)
+                logging.debug(self.cmdout)
                 rec_buff = ''
                 return False
-            time.sleep(1.5)
+            #time.sleep(1.5)
+        return position
 
     def test_mqtt(self):
         try:
@@ -213,3 +211,7 @@ class simcom:
     #convert hex repr to string
     def toStr(self,s):
         return s and chr(atoi(s[:2], base=16)) + toStr(s[2:]) or ''
+
+class gnss_object:
+    def __init__(self, data):
+        data.split(",")
