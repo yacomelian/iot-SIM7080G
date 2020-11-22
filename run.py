@@ -7,6 +7,7 @@ from classes import simcom
 import argparse
 import logging
 import sys
+import time
 import uuid
 import yaml
 
@@ -15,15 +16,21 @@ def parse_args():
     global args
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "-e", "--exec", action="store",
-        required=False,
-        choices=['batch', 'simulate', 'demo'],
-        help="""Select a different execution type, NOT USE IN REAL MODE:
-         batch: read from csv files in folder
-         simulate: read from created /dev/* device created
-         demo: read from csv to create realtime data
-         """)
-    ap.add_argument('--verbose', '-v', action='count', default=0)
+        '--verbose',
+        '-v',
+        action='count',
+        default=0,
+        help=""" DEBUG 
+            LINEA 2
+        """)
+    ap.add_argument(
+        '--error',
+        '-e', 
+        action='count',
+        default=0,
+        help=""" ERROR 
+            LINEA 2
+        """ )
     args = vars(ap.parse_args())
 
 
@@ -54,6 +61,8 @@ def setup():
     load_config()
     if (args['verbose'] > 0):
         set_logging('DEBUG')
+    elif (args['error'] > 0):
+        set_logging('ERROR')
     else:
         set_logging(cfg['logging'])
 
@@ -66,17 +75,23 @@ def setup():
 
 def main():
     sim = simcom(None)
-    sim.test_gps()
- 
+    try:
+        while True:
+            sim.getGpsPosition()
+            time.sleep(10)
+    except KeyboardInterrupt:
+        # Not an error, so no need for a stack trace.
+        print("\nUser canceled - Shutting down module SIMCOM")
+    except Exception as e:
+        print (e)
+        print("\nShutting down module SIMCOM")
+    finally:
+        del sim  # Delete object and Power Down SIMCOM
+        sys.exit(1)
 
 if __name__ == "__main__":
     # TODO
     #  - GUI inter
     dateformat = "%d/%m/%Y-%H:%M:%S"
     setup()
-    try:
-        main()
-    except KeyboardInterrupt:
-        # Not an error, so no need for a stack trace.
-        print("\nOperation cancelled by user")
-        sys.exit(1)
+    main()

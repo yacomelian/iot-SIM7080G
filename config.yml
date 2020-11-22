@@ -1,6 +1,6 @@
 # Configuration file for car bluetooth reader
 
-logging: 'INFO'
+logging: 'INFO'     # CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
 
 mqtt:
    host: 'localhost'
