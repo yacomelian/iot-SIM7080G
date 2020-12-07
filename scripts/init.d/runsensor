@@ -1,0 +1,33 @@
+#! /bin/sh
+# /etc/init.d/runsensor
+
+### BEGIN INIT INFO
+# Provides: runsensor
+# Required-Start: $remote_fs $syslog
+# Required-Stop: $remote_fs $syslog
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Start Application
+# Description: Start run.py automatically.
+### END INIT INFO
+
+
+case "$1" in
+ start)
+  echo "Start run.py"
+  echo "runSensor is running" >> /home/pi/test1.log
+  sudo /usr/bin/python3 /home/pi/iot-7080G/run.py
+  ;;
+
+ stop)
+  echo "Stop Application.py"
+  /usr/bin/python3 -kill :1
+  ;;
+
+ *)
+  echo "Usage: /etc/init.d/runsensor {start|stop}"
+  exit 1
+  ;;
+esac
+
+exit 0

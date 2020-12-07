@@ -1,0 +1,14 @@
+[Unit]
+Description=iot Sensor
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 -u run.py
+WorkingDirectory=/home/pi/iot-7080G
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
