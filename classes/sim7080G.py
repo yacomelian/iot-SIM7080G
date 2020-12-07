@@ -2,16 +2,20 @@
 
 import functools
 import logging
-import RPi.GPIO as GPIO
 import time
 import serial
+
+try:
+    import RPi.GPIO as GPIO
+except RuntimeError as e:
+    pass
 
 
 class simcom:
 
     powerKey = 4
     rec_buff = ''
-    Message = 'www.waveshare.com'
+    Message = 'akatest'
     mqtt_url = 'broker.emqx.io'
     mqtt_port = 1883
     serial_dev = '/dev/ttyS0'
@@ -81,6 +85,19 @@ class simcom:
             time.sleep(1)
             self.ser.write('AT\r\n'.encode())
             time.sleep(1)
+
+            """ UnicodeDecodeError 
+            Traceback (most recent call last):
+  File "./run.py", line 97, in <module>
+    main()
+  File "./run.py", line 77, in main
+    sim = simcom(None)
+  File "/home/pi/iot-SIM7080G/classes/sim7080G.py", line 28, in __init__
+    self.checkStart()
+  File "/home/pi/iot-SIM7080G/classes/sim7080G.py", line 88, in checkStart
+    logging.debug('try to start' + recBuff.decode())
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x80 in position 3: invalid           
+            """
             if self.ser.inWaiting():
                 time.sleep(0.01)
                 recBuff = self.ser.read(self.ser.inWaiting())

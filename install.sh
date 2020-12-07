@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 ./scripts/initialize_gpio.sh
 
 apt install git python3 python3-pip

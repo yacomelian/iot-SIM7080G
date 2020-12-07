@@ -1,5 +1,8 @@
 # SIM7080G Module python test
 
+## Enable serial
+raspi-config -> interface -> Serial -> dDisable login shell -> Enabel serial hardware
+
 
 ## Install
 
