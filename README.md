@@ -1,10 +1,13 @@
 # SIM7080G Module python test
 
+## Enable serial
+
+raspi-config -> interface -> Serial -> disable login shell -> Enabel srial hardware
+
 
 ## Install
 
-	pip3 install -r requirements.txt
-	apt install python3-yaml
+install.sh
 
 ## GPS
 

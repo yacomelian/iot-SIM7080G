@@ -11,6 +11,7 @@ class simcom:
 
     powerKey = 4
     rec_buff = ''
+    startedSim = False
     Message = 'www.waveshare.com'
     mqtt_url = 'broker.emqx.io'
     mqtt_port = 1883
@@ -21,17 +22,20 @@ class simcom:
     gps_status = 0
     ON = 1
     OFF = 0
+    noresponse = 0
+    MAXNORESPONSE=3
 
     def __init__(self, data):
         self.ser = serial.Serial(self.serial_dev, self.bps)
         self.ser.flushInput()
+        self.startedSim = False
         self.checkStart()
         
     def __del__(self):
         self.powerDown(self.powerKey)
 
     def powerOn(self, powerKey):
-        logging.info('SIM7080X is starting')
+        logging.info('SIM7080X is powering on')
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         GPIO.setup(powerKey, GPIO.OUT)
@@ -53,44 +57,75 @@ class simcom:
         time.sleep(5)
         logging.info('Good bye')
 
+    def reboot (self):
+        self.noresponse=0
+        powerDown()
+        time.sleep(5)
+        powerOn()
+
+
     def sendAt(self, command, back, timeout):
         rec_buff = ''
-        self.ser.write((command+'\r\n').encode())
-        time.sleep(timeout)
-        if self.ser.inWaiting():
+        try:
+            self.ser.write((command+'\r\n').encode())
             time.sleep(timeout)
-            rec_buff = self.ser.read(self.ser.inWaiting())
-        if rec_buff != '':
-            self.cmdout = rec_buff.decode()
-            if back not in rec_buff.decode():
-                logging.debug(command + ' back:\t' + rec_buff.decode())
-                return 0
+
+            if self.ser.inWaiting():
+                time.sleep(timeout)
+                rec_buff = self.ser.read(self.ser.inWaiting())
+            if rec_buff != '':
+                self.cmdout = rec_buff.decode()
+                if back not in rec_buff.decode():
+                    logging.debug("Unexpected answer:" + command + ' back:\t' + rec_buff.decode())
+                    return 0
+                else:
+                    logging.debug("ANSWER: "+ rec_buff.decode())
+                    return 1
             else:
-                logging.debug(rec_buff.decode())
-                return 1
-        else:
-            logging.debug(command + ' no response')
+                logging.debug(command + ' no response')
+                self.noresponse += 1
+                if (self.noresponse > self.MAXNORESPONSE):
+                    self.reboot()
+
+        except Exception as e:
+            logging.info('Algo paso al enviar el comando')
+            pass
+
+
 
     def checkStart(self):
-        while True:
+        while not self.startedSim:
             # simcom module uart may be fool, so it is better
             # to send much times when it starts.
-            self.ser.write('AT\r\n'.encode())
-            time.sleep(1)
-            self.ser.write('AT\r\n'.encode())
-            time.sleep(1)
-            self.ser.write('AT\r\n'.encode())
-            time.sleep(1)
-            if self.ser.inWaiting():
-                time.sleep(0.01)
-                recBuff = self.ser.read(self.ser.inWaiting())
-                logging.info('SIM7080X is ready')
-                logging.debug('try to start' + recBuff.decode())
-                if 'OK' in recBuff.decode():
-                    recBuff = ''
-                    break
-            else:
-                self.powerOn(self.powerKey)
+            logging.info('SIM7080X starting')
+            try:
+                self.ser.write('AT\r\n'.encode())
+                time.sleep(1)
+                self.ser.write('AT\r\n'.encode())
+                time.sleep(1)
+                self.ser.write('AT\r\n'.encode())
+                time.sleep(1)
+                if self.ser.inWaiting():
+                    time.sleep(0.01)
+                    recBuff = self.ser.read(self.ser.inWaiting())
+                    self.startedSim = True
+                    logging.info('SIM7080X is ready')
+                    logging.debug('Try to start' + recBuff.decode())
+                    if 'OK' in recBuff.decode():
+                        recBuff = ''
+                        break
+
+                else:
+                    self.powerOn(self.powerKey)
+            except UnicodeDecodeError:
+                logging.info ("Unicode error")
+                # Como no esta el self.startedSim, debe repetirse, ojo con bucle infinito
+                # Volvemos a ejecutar quizas sería mejor un bucle
+                #self.checkStart()
+            except Exception as e:
+                print("ERROR NO CONTROLADO")
+                logging.info (format(e))
+        logging.info('SIM7080X already started')
      
     def gpsGetStatus(self):
         return self.sendAt('AT+CGNSINF', '+CGNSINF: ', 1)
@@ -155,6 +190,313 @@ class simcom:
                 return False
             #time.sleep(1.5)
         return position
+
+    def sim_pin(self):
+
+        if (self.sendAt('AT+CPIN?','READY', 1)):
+            logging.debug('SIM prepadada')
+        else:
+            logging.debug('Revisar SIM')
+
+    def reboot(self):
+        self.sendAt('AT+CREBOOT', 'OK', 1)
+
+    def sim_signal(self):
+        self.sendAt('AT+CSQ','OK',3)
+#        self.sendAt('AT+CGREG?', 'OK', 3)
+#        self.sendAt('AT+CGNAPN', 'OK', 3)
+        self.sendAt('AT+CPSI?','CPSI',3)
+#        self.sendAt('AT+CNACT?','OK',3)
+#        self.sendAt('AT+CGACT?','OK',3)
+#        self.sendAt('AT+CGNAPN=?','OK',3)
+#        self.sendAt('AT+CBANDCFG=?','OK',3)
+#        self.sendAt('AT+CBANDCFG?','OK',3)
+#        self.sendAt('AT+COPS?','OK',3)
+#        self.sendAt('AT+CSQ','OK',3)
+#        self.sendAt('AT+COPS=?','OK',900)
+
+        time.sleep(5)
+
+    def network_connect(self):
+            logging.info('wait for signal')
+            time.sleep(10)
+            self.sendAt('AT+CSQ', 'OK', 1)
+            self.sendAt('AT+CPSI?', 'OK', 1)
+            self.sendAt('AT+CGREG?', '+CGREG: 0, 1', 0.5)
+            self.sendAt('AT+CNACT=0, 1', 'OK', 1)
+
+
+    def factoryTestMode(self):
+        self.sendAt('AT+CFUN=5','OK', 1)
+    
+    def fullMode(self):
+        self.sendAt('AT+CFUN=1','OK', 1)
+    
+    def resetModule(self):
+        self.sendAt('AT+CFUN=1,1','OK', 10)
+    
+    def checkSIM(self):
+        self.sendAt('AT+CPIN?','OK', 1)
+ 
+    def view_basicConfigOptions(self):
+        self.sendAt('AT+CNMP=?','OK',3)
+        self.sendAt('AT+CNMP?','OK',3)
+        self.sendAt('AT+CMNB=?','OK',3)
+        self.sendAt('AT+CMNB?','OK',3)
+        self.sendAt('AT+CBANDCFG=?','OK',1)
+        self.sendAt('AT+CBANDCFG?','OK',1)
+        self.sendAt('AT+CGNAPN', 'OK', 1)
+
+    def view_phoneSettings(self):
+        # Configure CAT-M or NB-IOT
+        self.sendAt('AT+CBANDCFG?','OK',1)
+        # Configure mobile operation band
+        self.sendAt('AT+CBAND?','OK',1)
+        # Preferred mode selection
+        self.sendAt('AT+CNMP?','OK',1)
+        # Select between CAT-M and NB-IOT
+        self.sendAt('AT+CMNB?','OK',1)
+
+    def view_simSettings(self):
+        self.sendAt('AT+CPIN?','OK',1)
+
+    def view_operatorSettings(self):
+        self.sendAt('AT+COPS?','OK',1)
+        pass
+
+    def view_simcomdata(self):
+        # Network system mode
+        self.sendAt('AT+CNSMOD?','OK',1)
+        # Power Saving
+        self.sendAt('AT+CPSMS?','OK',1)
+        # Service Domain Preference
+        self.sendAt('AT+CSDP?','OK',1)
+        # NB-IOT Scrambling Feature
+        self.sendAt('AT+NBSC?','OK',1)
+        # NB-IOT Band Scan Optimization
+        self.sendAt('AT+CNBS?','OK',1)
+        # NB-IOT Service Domain Preference
+        self.sendAt('AT+CNDS?','OK',1)
+        # Manage Mobile Operator Configuration
+        self.sendAt('AT+CMCFG?','OK',1)
+        # Show remote IP Addr and Port when receive data
+        self.sendAt('AT+CASRIP?','OK',1)
+        # Read PSM Dynamic Parameters
+        self.sendAt('AT+CPSMRDP','OK',1)
+        # Configure PSM version and minimum threshold
+        self.sendAt('AT+CPSMCFG?','OK',1)
+        # Enable deep Sleep Wakeup Indication
+        self.sendAt('AT+CPSMSTATUS?','OK',1)
+        # NB-IOT Configure Release Assistance Indication
+        self.sendAt('AT+CRAI?','OK',1)
+        # Configure Antenna Tuner
+        self.sendAt('AT+ANTENALLCFG?','ANTENA',2)
+
+    def view_nbSettings(self):
+        # NB-IOT Scrambling Feature
+        self.sendAt('AT+NBSC?','OK',1)
+        # NB-IOT Band Scan Optimization
+        self.sendAt('AT+CNBS?','OK',1)
+        # NB-IOT Service Domain Preference
+        self.sendAt('AT+CNDS?','OK',1)
+        # NB-IOT Configure Release Assistance Indication
+        self.sendAt('AT+CRAI?','OK',1)
+
+        self.sendAt('AT+CGNAPN', 'OK', 1)
+    
+    
+    def view_signal(self):
+        self.sendAt('AT+CSQ','OK',1)
+
+    def view_ipSettings(self):
+         # APP Network Active
+        self.sendAt('AT+CNACT?','OK',1)
+   
+    def viewSettings(self):
+        self.view_basicConfigOptions()
+        self.view_phoneSettings()
+        self.view_simSettings()
+        self.view_operatorSettings()
+        self.view_simcomdata()
+
+
+    def defineBands(self):
+        self.sendAt('AT+CBANDCFG="NB-IOT",1,2,3,4,5,8,12,13,18,19,20,25,26,28,66,71,85','OK',2)
+        self.sendAt('AT+CBANDCFG="CAT-M",1,2,3,4,5,8,12,13,14,18,19,20,25,26,27,28,66,85','OK',1)
+
+
+    def network_parametersetup(self):
+        #
+        NBIOT=2
+        CATM=1
+        CATMNBIOT=3
+#        service = 1  # CAT-M
+        service = NBIOT
+ #       service = 3  # Both
+        AUTO= 2
+        GSM = 13
+        LTE = 38
+        GSMyLTE = 51
+        network = AUTO
+        # 1 CAT-M  2 NB-IOT  3 CAT-M and NB-IOT
+        self.sendAt('AT+CMNB='+str(service), 'OK', 3)
+        self.sendAt('AT+CNMP='+str(network), 'OK', 3)
+    
+    def network_select (self):
+        self.sendAt('AT+COPS=?','COPS', 600)
+
+    def network_register(self):
+        DISABLE=0
+        ENABLE=1
+        ENABLEGPRS=2
+
+        self.sendAt('AT+CREG='+str(ENABLE), 'OK', 1)
+        time.sleep(1)
+
+
+    def network_nbsetup(self):
+        pass
+
+
+    def phone_setstatus(self, value):
+        self.sendAt('AT+CFUN='+str(value), 'OK', 1)
+
+    def phone_disable(self):
+        self.phone_setstatus(0)
+
+    def phone_enable(self):
+        self.phone_setstatus(1)
+
+
+
+    def test_nb(self):
+        self.viewSettings()
+        self.phone_disable()
+        self.defineBands()
+        self.phone_enable()
+        self.network_parametersetup()
+        self.sendAt('AT+CMCFG=1', 'OK', 3)
+        self.network_nbsetup()
+        self.network_register()
+#        self.network_connect()
+ 
+
+    def test_sim3(self):
+        self.sendAt('ATZ', 'OK', 1)
+        self.sendAt('AT+CFUN=0', 'OK', 1)
+        self.sendAt('AT+CFUN=1', 'OK', 1)
+
+        self.preferredtechselection()
+#        self.sendAt('AT+CGDCONT=0,"IP","nb.inetd.gdsp"', 'OK', 1)
+        self.network_register()
+        #self.factoryTestMode()
+#        self.resetModule()
+        #self.checkStart()
+#        self.sim_pin()
+        #self.sendAt('AT+CMNB=3', 'OK', 1)
+#        self.preferredtechselection()
+#        self.preferredmodeselection()
+#        self.sendAt('AT+CREG=2', 'OK', 1)
+#        self.sim_signal()
+#        self.fullMode(),
+#        self.sendAt('AT+CBANDCFG="CAT-M",85','OK',1)
+#        self.viewOptions()
+        self.viewSettings()
+        self.sim_connect()
+
+
+    def test_sim2(self):
+        self.sendAt('ATZ', 'OK', 1)
+        self.sendAt('AT+CFUN=0', 'OK', 1)
+        self.sendAt('AT+CBANDCFG=?','OK',1)
+        self.sendAt('AT+CBANDCFG?','OK',1)
+        self.sendAt('AT+CREG=1', 'OK', 1)
+        #self.sendAt('AT*MCGDEFCONT="IP","spe.inetd.vodafone.nbiot"','AT',1)
+#        self.sendAt('AT+CGDCONT=0,"IP","nb.inetd.gdsp"','AT',3)
+        self.sendAt('AT+CGDCONT=1,"IP","nb.inetd.gdsp"','OK',3)
+#       self.sendAt('AT+CBANDCFG="CAT-M",1','OK',1)
+ #       self.sendAt('AT+CBANDCFG="NB-IOT",20','OK',1)
+        self.sendAt('AT+CBANDCFG="NB-IOT",1,2,3,4,5,8,12,13,14,18,19,25,26,27,28,66,71,85','OK',1)
+
+ #       self.sendAt('AT+CNBS=3', 'OK', 1)
+ #       self.sendAt('AT+CNMP=51', 'OK', 1)
+        self.sendAt('AT+CMNB=3', 'OK', 1)
+ 
+        self.sendAt('AT+CFUN=1', 'OK', 1)
+#        self.sendAt('AT+CGATT=1','AT',3)
+#        self.sendAt('AT+CGACT=1,1','OK',3)
+ 
+ #       self.sendAt('AT+CBAND=?','OK',1)
+ #       self.sendAt('AT+CBAND="ALL_MODE"','OK',1)
+#        self.sendAt('AT+COPS=1,2,"21401"','COPS', 1)
+        self.sendAt('AT+COPS=0','OK', 1)
+
+
+    def test_sim(self):
+        logging.info('Test SIM CARD')
+        #self.sendAt('AT+CFUN=1','OK',3)
+        self.sim_pin()
+        self.sendAt('ATI', 'OK', 1)
+        self.sendAt('AT+CGMI', 'OK', 1)
+        self.sendAt('AT+CGMM', 'OK', 1)
+        self.sendAt('AT+CCID', 'OK', 1)
+        self.sendAt('AT+CFUN?', 'OK', 1)
+        self.sendAt('AT+COPS=1,2,"21401"','COPS', 6)
+        time.sleep(5)
+        self.sendAt('AT+CSQ','OK',3)
+        time.sleep(5)
+        self.sendAt('AT+CSQ','OK',3)
+        self.sendAt('AT+CGDCONT=1,"IP","spe.inetd.vodafone.nbiot"','OK',3)
+        time.sleep(5)
+        self.sendAt('AT+CSQ','OK',3)
+        #self.sendAt('AT+CMNB=2', 'OK', 1)
+#        self.sendAt('AT+CBANDCFG="NB-IOT",2,3,4,8,9,12,13','OK',3)
+        #self.sendAt('AT+CGDCONT=1,"IP","ac.vodafone.es","0.0.0.0",0,0','OK',3)
+        #self.sendAt('AT+CGDCONT=1,"IP","spe.inetd.vodafone.nbiot","0.0.0.0",0,0','OK',3)
+
+        self.sendAt('AT+CNBS=3', 'OK', 1)
+        self.sendAt('AT+CNMP=2', 'OK', 1)
+        self.sendAt('AT+CMNB=2', 'OK', 1)
+        #self.sendAt('AT+COPS=1,2,"21409",9','COPS', 6)
+        #self.sendAt('AT+COPS=0','COPS', 6)
+        self.sendAt('AT+CGREG=1', 'OK', 3)
+        self.sendAt('AT+CGDCONT=1,"IP","spe.inetd.vodafone.nbiot"','OK',3)
+        self.sendAt('AT+CGDCONT=1,"IP","spe.inetd.vodafone.nbiot"','OK',3)
+        self.sendAt('AT+CGACT=1','OK',30)
+        #self.sendAt('AT+COPS=1,2,"21409",9','COPS', 6)
+        #self.sendAt('AT+QCFG="iotopmode",1','OK', 6)
+        #self.sendAt('AT+QCFG="iotopmode",1','OK', 6)
+        #self.sendAt('AT+COPS=1,2,"21409"','COPS', 6)
+        #self.sendAt('AT+CSQ','OK',3)
+
+        #self.sendAt('AT+CBANDCFG=?', 'OK', 1)
+        #self.sendAt('AT+CNMP=?', 'OK', 1)
+#        self.sendAt('AT+CNMP=38', 'OK', 1)
+        #self.sendAt('AT+CGDCONT=1,"IP","ac.vodafone.es","0.0.0.0",0,0','OK',3)
+        #self.sendAt('AT+CGNAPN','OK',3)
+#        self.sendAt('AT+CPSI?','OK',3)
+#        self.sendAt('AT+CBANDCFG="NB-IOT",8','OK',3)
+        time.sleep(10)
+#        self.sendAt('AT+CPSI','OK',3)
+#        self.sendAt('AT+CGPADDR=?','OK', 3)
+#        self.sendAt('AT+COPS?','OK', 6)
+        #     
+
+        #self.sendAt('AT+COPS=1,1,1','OK', 600)
+#        self.sendAt('AT+CPSI','OK',3)
+#        self.sendAt('AT+CSQ','OK',3)
+#        self.sendAt('AT+CNMP=38')
+#        self.sendAt('AT+CMNB=2')
+#        self.sendAt('AT+CSQ')
+#        self.sendAt('AT+CGREG')
+#        self.sendAt('AT+CGNAPN')
+#        self.sendAt('AT+CPSI?')
+#        for i in range (1,5):
+#            self.sendAt('AT+CGATT?','OK',3)
+#            time.sleep(1)
+#        self.sendAt('AT+CSQ','OK',3)
+#        self.sendAt('AT+CGDCONT=1,"IP","nb.inetd.gdsp","0.0.0.0",0,0','OK',3)
+#
 
     def test_mqtt(self):
         try:
