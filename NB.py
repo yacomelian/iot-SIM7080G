@@ -81,6 +81,12 @@ def main():
         while True:
     #        sim.getGpsPosition()
             sim.sim_signal()
+            sim.network_register()
+            if ( sim.sim_checkconnection() == 1):
+                sim.test_nb()
+                sim.network_register()
+                sim.sim_signal()
+    #            sim.test_mqtt()
 #        sim.test_mqtt()
     except KeyboardInterrupt:
         # Not an error, so no need for a stack trace.

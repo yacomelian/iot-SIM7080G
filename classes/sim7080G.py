@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+
+
 import functools
 import logging
 import RPi.GPIO as GPIO
@@ -12,9 +14,11 @@ class simcom:
     powerKey = 4
     rec_buff = ''
     startedSim = False
-    Message = 'www.waveshare.com'
+    sim_pin = "3522"
+    sim_apn = "m2m.movistar.es"
     mqtt_url = 'broker.emqx.io'
     mqtt_port = 1883
+    mqtt_message = 'M2M MOVISTAR'
     serial_dev = '/dev/ttyS0'
     bps = 115200
     ser = ''
@@ -23,13 +27,16 @@ class simcom:
     ON = 1
     OFF = 0
     noresponse = 0
-    MAXNORESPONSE=3
+    MAXNORESPONSE = 5
 
     def __init__(self, data):
         self.ser = serial.Serial(self.serial_dev, self.bps)
         self.ser.flushInput()
         self.startedSim = False
         self.checkStart()
+        self.sim_pin()
+        self.sim_signal()
+        self.network_connect()
         
     def __del__(self):
         self.powerDown(self.powerKey)
@@ -45,6 +52,7 @@ class simcom:
         GPIO.output(powerKey, GPIO.LOW)
         time.sleep(5)
         self.ser.flushInput()
+        self.noresponse=0
 
     def powerDown(self, powerKey = 4):
         logging.info('SIM7080X is stopping')
@@ -58,10 +66,14 @@ class simcom:
         logging.info('Good bye')
 
     def reboot (self):
-        self.noresponse=0
-        powerDown()
-        time.sleep(5)
-        powerOn()
+        logging.info('SIM7080X check if reboot')
+        self.noresponse += 1
+        logging.debug('SIM7080X no response count is: {} of maximum of {}'.format(self.noresponse, self.MAXNORESPONSE ))
+        if (self.noresponse > self.MAXNORESPONSE):
+            self.powerDown()
+            self.startedSim = False
+            time.sleep(15)
+            self.checkStart()
 
 
     def sendAt(self, command, back, timeout):
@@ -83,15 +95,10 @@ class simcom:
                     return 1
             else:
                 logging.debug(command + ' no response')
-                self.noresponse += 1
-                if (self.noresponse > self.MAXNORESPONSE):
-                    self.reboot()
-
+                self.reboot()
         except Exception as e:
             logging.info('Algo paso al enviar el comando')
-            pass
-
-
+            self.reboot()
 
     def checkStart(self):
         while not self.startedSim:
@@ -125,6 +132,7 @@ class simcom:
             except Exception as e:
                 print("ERROR NO CONTROLADO")
                 logging.info (format(e))
+                self.reboot()
         logging.info('SIM7080X already started')
      
     def gpsGetStatus(self):
@@ -196,16 +204,19 @@ class simcom:
         if (self.sendAt('AT+CPIN?','READY', 1)):
             logging.debug('SIM prepadada')
         else:
+            self.sendAt('AT+CPIN=5322', 'OK', 1)
             logging.debug('Revisar SIM')
 
-    def reboot(self):
-        self.sendAt('AT+CREBOOT', 'OK', 1)
+    def sim_reboot(self):
+        #self.sendAt('AT+CREBOOT', 'OK', 1)
+        self.sendAt('AT+CFUN=1,1', 'OK', 1)
 
     def sim_signal(self):
         self.sendAt('AT+CSQ','OK',3)
 #        self.sendAt('AT+CGREG?', 'OK', 3)
 #        self.sendAt('AT+CGNAPN', 'OK', 3)
-        self.sendAt('AT+CPSI?','CPSI',3)
+        val = self.sendAt('AT+CPSI?','CPSI',3)
+        print ('Valor: {}'.format(val))
 #        self.sendAt('AT+CNACT?','OK',3)
 #        self.sendAt('AT+CGACT?','OK',3)
 #        self.sendAt('AT+CGNAPN=?','OK',3)
@@ -214,8 +225,13 @@ class simcom:
 #        self.sendAt('AT+COPS?','OK',3)
 #        self.sendAt('AT+CSQ','OK',3)
 #        self.sendAt('AT+COPS=?','OK',900)
-
         time.sleep(5)
+
+    def sim_checkconnection(self):
+        if ( self.sendAt('AT+CPSI?','NO SERVICE',3) == 1 ):
+            return 0
+        else:
+            return 1
 
     def network_connect(self):
             logging.info('wait for signal')
@@ -223,8 +239,9 @@ class simcom:
             self.sendAt('AT+CSQ', 'OK', 1)
             self.sendAt('AT+CPSI?', 'OK', 1)
             self.sendAt('AT+CGREG?', '+CGREG: 0, 1', 0.5)
+            self.sendAt('AT+CNCFG=0,1,"m2m.movistar.es"', 'OK', 1)
+#            self.sendAt('AT+CNCFG=0,1,"' + self.sim_apn + '"')
             self.sendAt('AT+CNACT=0, 1', 'OK', 1)
-
 
     def factoryTestMode(self):
         self.sendAt('AT+CFUN=5','OK', 1)
@@ -264,7 +281,7 @@ class simcom:
         self.sendAt('AT+COPS?','OK',1)
         pass
 
-    def view_simcomdata(self):
+    def sim_view_simcomdata(self):
         # Network system mode
         self.sendAt('AT+CNSMOD?','OK',1)
         # Power Saving
@@ -290,7 +307,11 @@ class simcom:
         # NB-IOT Configure Release Assistance Indication
         self.sendAt('AT+CRAI?','OK',1)
         # Configure Antenna Tuner
-        self.sendAt('AT+ANTENALLCFG?','ANTENA',2)
+        #self.sendAt('AT+ANTENALLCFG=?','OK',2)
+        #self.sendAt('AT+ANTENALLCFG?','OK',2)
+        # Lock the special NB-IOT cell
+#        self.sendAt('AT+NCELLLOCK=?','OK',2)
+#        self.sendAt('AT+NCELLLOCK?','OK',2)
 
     def view_nbSettings(self):
         # NB-IOT Scrambling Feature
@@ -309,38 +330,65 @@ class simcom:
         self.sendAt('AT+CSQ','OK',1)
 
     def view_ipSettings(self):
-         # APP Network Active
+        # APP Network Active:
         self.sendAt('AT+CNACT?','OK',1)
+        self.sendAt('AT+CDNSCFG?','OK',1)
+
    
     def viewSettings(self):
         self.view_basicConfigOptions()
         self.view_phoneSettings()
         self.view_simSettings()
         self.view_operatorSettings()
-        self.view_simcomdata()
+        self.sim_view_simcomdata()
 
 
-    def defineBands(self):
-        self.sendAt('AT+CBANDCFG="NB-IOT",1,2,3,4,5,8,12,13,18,19,20,25,26,28,66,71,85','OK',2)
-        self.sendAt('AT+CBANDCFG="CAT-M",1,2,3,4,5,8,12,13,14,18,19,20,25,26,27,28,66,85','OK',1)
+    def sim_set_band(self):
+        #self.sendAt('AT+CBANDCFG="NB-IOT",1,2,3,4,5,8,12,13,18,19,20,25,26,28,66,71,85','OK',2)
+        # self.sendAt('AT+CBANDCFG="CAT-M",1,2,3,4,5,8,12,13,14,18,19,20,25,26,27,28,66,85','OK',1)
+        # Segun https://halberdbastion.com/intelligence/mobile-networks/vodafone-spain, limitamos las bandas
+        # Segun https://halberdbastion.com/intelligence/countries-nations/spain       
+        #Vodafone Spain
+        #Country: Spain
+        #Technology: NB-IoT (LTE Cat-NB1)
+        #Band: B20 (800 MHz)
+        #Status: Active
+        self.sendAt('AT+CBANDCFG="NB-IOT",20','OK',2)
+        self.sendAt('AT+CBANDCFG="CAT-M",20','OK',1)
 
 
-    def network_parametersetup(self):
+    def sim_set_network_parameters(self):
         #
         NBIOT=2
         CATM=1
         CATMNBIOT=3
 #        service = 1  # CAT-M
-        service = NBIOT
+        service = CATMNBIOT
  #       service = 3  # Both
+        self.sendAt('AT+CMNB='+str(service), 'OK', 3)
         AUTO= 2
         GSM = 13
         LTE = 38
         GSMyLTE = 51
         network = AUTO
-        # 1 CAT-M  2 NB-IOT  3 CAT-M and NB-IOT
-        self.sendAt('AT+CMNB='+str(service), 'OK', 3)
         self.sendAt('AT+CNMP='+str(network), 'OK', 3)
+        # 1 CAT-M  2 NB-IOT  3 CAT-M and NB-IOT
+        SNRL1 = 1 # UE tries SNR level 0
+        SNRL2 = 2 # UE tries SNR level 0 and level 1
+        SNRL3 = 3 # UE tries SNR level 0, level 1 and level 2 band scan
+        SNRL4 = 4 # Reserved
+        SNRL5 = 5 # UE tries SNR level 2 band scan only
+        bandopt = SNRL3
+        self.sendAt('AT+CNBS='+str(bandopt), 'OK', 3)
+        PS = 1 # PS (Packed Switched Domain) ONLY
+        CS = 2 # CS(Circuit Switched Domain) + PS (Packet Switched Domain)
+        dompref = PS
+        self.sendAt('AT+CNDS='+str(dompref), 'OK', 3)
+        SCRDIS = 0 # Disable scambilng feature in NB-IOT network 
+        SCRENA = 1 # Enable scambilng feature in NB-IOT network 
+        scrambling = SCRENA
+        
+        self.sendAt('AT+NBSC='+str(scrambling), 'OK', 3)
     
     def network_select (self):
         self.sendAt('AT+COPS=?','COPS', 600)
@@ -372,9 +420,9 @@ class simcom:
     def test_nb(self):
         self.viewSettings()
         self.phone_disable()
-        self.defineBands()
+        self.sim_set_band()
         self.phone_enable()
-        self.network_parametersetup()
+        self.sim_set_network_parameters()
         self.sendAt('AT+CMCFG=1', 'OK', 3)
         self.network_nbsetup()
         self.network_register()
@@ -508,20 +556,18 @@ class simcom:
             self.sendAt('AT+CGREG?', '+CGREG: 0, 1', 0.5)
             self.sendAt('AT+CNACT=0, 1', 'OK', 1)
             self.sendAt('AT+CACID=0',  'OK', 1)
-            self.sendAt('AT+SMCONF=\"URL\", broker.emqx.io, 1883', 'OK', 1)
-            self.sendAt(
-                'AT+SMCONF=\"URL\", ' + self.mqtt_url + ', ' + self.mqtt_port,
-                'OK', 1)
+            self.sendAt('AT+SMCONF=\"URL\", \"broker.mqttdashboard.com\", \"1883\"', 'OK', 1)
+#            self.sendAt('AT+SMCONF="URL", ' + self.mqtt_url + ', ' + self.mqtt_port,'OK', 1)
             self.sendAt('AT+SMCONF=\"KEEPTIME\", 60', 'OK', 1)
             self.sendAt('AT+SMCONN', 'OK', 5)
-            self.sendAt('AT+SMSUB=\"waveshare_pub\", 1', 'OK', 1)
-            self.sendAt('AT+SMPUB=\"waveshare_sub\", 17, 1, 0', 'OK', 1)
+            self.sendAt('AT+SMPUB="waveshare1_sub", 17, 1, 0', 'OK', 1)
+            #self.sendAt('AT+SMSUB="waveshare1_pub", 1', 'AMS-OK', 1)
             self.ser.write(self.Message.encode())
             time.sleep(10)
             logging.info('send message successfully!')
             self.sendAt('AT+SMDISC', 'OK', 1)
             self.sendAt('AT+CNACT=0, 0',  'OK',  1)
-            self.powerDown(self.powerKey)
+#            self.powerDown(self.powerKey)
         except Exception:
             if self.ser is not None:
                 self.ser.close()
@@ -557,3 +603,58 @@ class simcom:
 class gnss_object:
     def __init__(self, data):
         data.split(",")
+
+
+
+"""
+# State machine in python
+# We have diferent states of the SIMCOM
+- Encendido
+- Sim Unlock
+- Network Search
+- Network Registry
+- IP Stack
+- Protocols   (Diferent states depending on protocol)
+    - PING
+    - MQTT
+    - ....
+
+- Idle
+- Apagado
+
+"""
+#State Machine
+class StateMachine:
+    def __init__(self, initialState):
+            self.currentState= initialState
+            self.currentState.run()
+
+    def runAll(self, inputs):
+            for i in inputs:
+                print(i)
+                self.currentState = self.currentState.next(i)
+                self.currentState.run()
+
+class State_poweron:
+    def run(self):
+        logging.info('SIM7080X is powering on')
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(powerKey, GPIO.OUT)
+        time.sleep(0.1)
+        GPIO.output(powerKey, GPIO.HIGH)
+        time.sleep(1)
+        GPIO.output(powerKey, GPIO.LOW)
+        time.sleep(5)
+        self.ser.flushInput()
+        self.noresponse=0
+
+
+    def next(self, input):
+        assert 0, "run not implemented"
+
+class State_simUnlock:
+
+
+
+

@@ -76,10 +76,10 @@ def setup():
 def main():
     sim = simcom(None)
     try:
-        sim.test_nb()
+#        sim.test_nb()
         while True:
     #        sim.getGpsPosition()
-            sim.sim_signal()
+#·            sim.sim_signal()
 #            sim.sim_signal()
             sim.test_mqtt()
     except KeyboardInterrupt:

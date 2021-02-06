@@ -12,11 +12,20 @@ serial:
    # Bluetooth and rfcomm
    port: '/dev/ttyS0'
    port_simulate: '/dev/pts/1'  
-   baudrate: 9600
+   baudrate: 115200
    parity: PARITY_NONE
    stopbits: STOPBITS_ONE
    bytesize: EIGHTBITS
    timeout: 1
+
+sim:
+   CMNB: 2
+   CNMP: 2
+   CBANDCFG: '"CAT-M",1,2,3,4,5,8,12,13,14,18,19,20,25,26,27,28,66,85'
+   #CBANDCFG: '"NB-IOT",1,2,3,4,5,8,12,13,18,19,20,25,26,28,66,71,85'
+   CBANDCFG: '"NB-IOT",20' 
+
+
 
    
 
