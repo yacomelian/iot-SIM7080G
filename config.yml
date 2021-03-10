@@ -2,12 +2,6 @@
 
 logging: 'DEBUG'     # CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
 
-mqtt:
-   host: 'localhost'
-   port: 1883
-   topic: "simcom/serial"
-   keepalive: 60
-
 serial:
    # Bluetooth and rfcomm
    port: '/dev/ttyS0'
@@ -17,15 +11,44 @@ serial:
    stopbits: STOPBITS_ONE
    bytesize: EIGHTBITS
    timeout: 1
+   ports_list:
+      - '/dev/ttyS[0-9]'
+      - '/dev/ttyUSB[0-9]'
 
-sim:
-   CMNB: 2
-   CNMP: 2
-   CBANDCFG: '"CAT-M",1,2,3,4,5,8,12,13,14,18,19,20,25,26,27,28,66,85'
-   #CBANDCFG: '"NB-IOT",1,2,3,4,5,8,12,13,18,19,20,25,26,28,66,71,85'
-   CBANDCFG: '"NB-IOT",20' 
+sensors:
+   port: "yes"
 
+simcom:
+   bps: 115200
+   powerkey: 4
+   serial_dev: '/dev/ttyS0'
+   sim:
+      pina: "3522"
+      apn: "m2m.movistar.es"
+      CMNB: 2
+      CNMP: 2
+      CBANDCFG: 
+         - catm = "1,2,3,4,5,8,12,13,14,18,19,20,25,26,27,28,66,85"
+         - nb = "20"
+      nbchannels: '20,21'
+      catmchannels: '19,20'
 
+   mqtt:
+      host: 'broker.emqx.io'
+      port: 1883
+      qos: 2
+      keepalive: 60
+      topic: "root/IECI/client/<device_id>/"
+      topic_pub: "root/IECI/client/<device_id>/"
+      topic_sub: 
+         - command
+         - other
 
-   
-
+    
+    
+    
+    
+    
+    
+    
+    

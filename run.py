@@ -33,29 +33,20 @@ def parse_args():
         """ )
     args = vars(ap.parse_args())
 
-
 """ Loads configuration, stored in global config """
-
-
 def load_config():
     global cfg
     cfg = yaml.safe_load(open(str(sys.path[0]) + "/config.yml"))
 
-
 """ Enables and configures logging """
-
-
 def set_logging(level='INFO'):
     strlevel = 'logging.' + level
     logging.basicConfig(stream=sys.stderr, level=eval(strlevel))
-
 
 """
     Setup global environment.
     This works like arduino model, setup and loop
 """
-
-
 def setup():
     parse_args()
     load_config()
@@ -71,13 +62,13 @@ def setup():
 
 
 """ Read GPS data """
-
-
 def main():
-    sim = simcom(None)
+    cfg['simcom']['uuid'] = uuid.uuid1()
+    sim = simcom(cfg['simcom'])
     try:
         while True:
-            sim.getGpsPosition()
+            sim.mqtt_pub("Hola", "vamos")
+            #sim.getGpsPosition()
             time.sleep(10)
     except KeyboardInterrupt:
         # Not an error, so no need for a stack trace.
